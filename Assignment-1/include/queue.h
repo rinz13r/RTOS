@@ -1,73 +1,40 @@
 #pragma once
 
-#define MAX_QUEUE_SIZE 10000
+#define MAX_QUEUE_SIZE 1000
 
 struct Msg;
 
-struct queue_node {
-    struct Msg * msg;
-    struct queue_node * nxt;
-};
-struct queue_node * queue_node_new (struct Msg * msg, struct queue_node * nxt) {
-    struct queue_node * qnode = malloc (sizeof (struct queue_node));
-    qnode->msg = msg;
-    qnode->nxt = nxt;
-
-    return qnode;
-}
-
 struct queue {
-    struct queue_node * head, * tail;
-    pthread_mutex_t lock;
-    pthread_cond_t not_full, not_empty;
-    int full, empty;
-    size_t size;
-} queue;
+    struct Msg * msg[MAX_QUEUE_SIZE];
+    size_t l, r, size;
+};
 
 struct queue * queue_new () {
     struct queue * q = malloc (sizeof (struct queue));
-    q->size = 0;
-    q->full = 0;
-    q->empty = 1;
-    pthread_mutex_init (&q->lock, NULL);
-    pthread_cond_init (&q->not_full, NULL);
-    pthread_cond_init (&q->not_empty, NULL);
+    q->l = q->r = 0;
+    q->size = MAX_QUEUE_SIZE + 1;
 
     return q;
 }
 
-void queue_push (struct queue * q, struct Msg * msg) {
-    struct queue_node * qnode = queue_node_new (msg, NULL);
-    while (q->full) {
-        pthread_cond_wait (&q->not_full, &q->lock);
-    }
+size_t next (size_t pos) {
+    return (pos+1)%(MAX_QUEUE_SIZE + 1);
+}
 
-    pthread_mutex_lock (&q->lock);
-    if (q->tail) {
-        q->tail->nxt = qnode;
-    } else {
-        q->tail = qnode;
-        q->head = q->tail;
-    }
-    q->size++;
-    q->full = (q->size == MAX_QUEUE_SIZE);
-    pthread_mutex_unlock (&q->lock);
-    pthread_cond_signal (&q->not_empty);
+void queue_push (struct queue * q, struct Msg * msg) {
+    q->msg[q->r] = msg;
+    q->r = next (q->r);
 }
 
 struct Msg * queue_pop (struct queue * q) {
-    while (q->empty) {
-        pthread_cond_wait (&q->not_empty, &q->lock);
-    }
-    pthread_mutex_lock (&q->lock);
-    struct Msg * ret = q->head->msg;
-    struct queue_node * head = q->head;
-    q->head = q->head->nxt;
-    free (head);
-    q->empty = (q->size == 0);
-    pthread_mutex_unlock (&q->lock);
-    pthread_cond_signal (&q->not_full);
-
+    struct Msg * ret = q->msg[q->l];
+    q->l = next (q->l);
     return ret;
+}
 
+int queue_empty (struct queue * q) {
+    return (q->l == q->r);
+}
+int queue_full (struct queue * q) {
+    return next (q->r) == q->l;
 }

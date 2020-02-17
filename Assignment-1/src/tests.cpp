@@ -17,10 +17,11 @@ int main (int argc, char ** argv) {
     for (int i = 0; i < nclients; ++i) {
         int pid = fork ();
         if (pid == 0) {
-            execl ("client", "client", "0.0.0.0", argv[2], "Vijay", "0", "F", NULL);
+            execl ("bin/client", "bin/client", "0.0.0.0", argv[2], "Vijay", "0", NULL);
         } else {
             pids.push_back (pid);
         }
+        usleep (20000);
     }
     signal (SIGINT, signal_handler);
     sleep (120);

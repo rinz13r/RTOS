@@ -19,6 +19,7 @@ typedef long long ll;
 struct t_format {
     ll s;
     ll f;
+    time_t now;
 };
 
 struct Msg {
@@ -26,5 +27,9 @@ struct Msg {
     char who[20];
     // int from;
     struct t_format ts;
+    char msg[256];
+};
+
+struct Notification {
     char msg[256];
 };

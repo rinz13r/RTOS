@@ -23,7 +23,7 @@ typedef long long ll;
 #define LOG(...) printf (__VA_ARGS__); printf ("\n");
 #define LOGI(x) printf ("%s=%d\n", #x, x);
 #define CLOGI(x) printf ("%d\n", x);
-#define CALL(n, arg_tup) if ((n arg_tup) < 0) {printf ("'%s' failed at %s:%d\n", #n, __FILE__, __LINE__); exit (EXIT_FAILURE);}
+#define CALL(n, msg) if ((n) < 0) {printf ("%s (%s:%d)\n", msg, __FILE__, __LINE__); exit (EXIT_FAILURE);}
 
 struct Socket {
     struct sockaddr_in serv_addr;
@@ -31,7 +31,7 @@ struct Socket {
 };
 
 int ClientSocket_init (struct Socket * sock, int port, char const* serv_ip) {
-    CALL (sock->listenfd = socket, (AF_INET, SOCK_STREAM, 0));
+    CALL (sock->listenfd = socket (AF_INET, SOCK_STREAM, 0), "socket creation");
     memset(&sock->serv_addr, '0', sizeof(typeof (sock->serv_addr)));
     sock->serv_addr.sin_family = AF_INET;
     sock->serv_addr.sin_addr.s_addr = inet_addr (serv_ip);
@@ -54,10 +54,10 @@ struct t_format gettime ();
 int usr_num, usr_grp;
 char * who;
 
-double time_diff (struct t_format ts1, struct t_format ts2) {
+double time_diff (struct t_format ts1, struct t_format ts2) { // in ms
     static ll one = 1;
-    double t1 = ts1.s + ((double)(ts1.f))/(1000);
-    double t2 = ts2.s + ((double)(ts2.f))/(1000);
+    double t1 = ts1.s*1000 + ((double)(ts1.f))/(1000);
+    double t2 = ts2.s*1000 + ((double)(ts2.f))/(1000);
     return t2-t1;
 }
 
@@ -65,16 +65,20 @@ int client_sock;
 void * read_handler (void * arg) {
     // LOG("created new thread %s", __func__);
     struct Msg msg;
+    struct Notification notif;
     int serv_op;
     while (1) {
         read (*(int*)arg, &serv_op, sizeof (serv_op));
         if (serv_op == MSG) {
             read (*(int*)arg, &msg, sizeof (msg));
-            printf ("\n%s: %s [(%lf)s ago]\n", msg.who, msg.msg, time_diff (msg.ts, gettime()));
+            printf ("\n%s: %s [(%lf)ms ago]\n", msg.who, msg.msg, time_diff (msg.ts, gettime()));
         } else if (serv_op == KILL) {
             close (client_sock);
             exit (0);
             break;
+        } else if (serv_op == NOTIF) {
+            read (*(int*)arg, &notif, sizeof (notif));
+            printf ("Notification[%s]\n", notif.msg);
         }
     }
 }
@@ -82,9 +86,10 @@ void * read_handler (void * arg) {
 
 void * write_handler (void * arg) {
     // LOG("created new thread %s", __func__);
-    struct Msg msg;
-    strcpy (msg.who, who);
+    LOGI(usr_grp);
     while (1) {
+        struct Msg msg;
+        strcpy (msg.who, who);
         msg.grp = usr_grp;
         fgets (msg.msg, 255, stdin);
         int req = SEND_MSG;
@@ -107,23 +112,25 @@ void signal_handler (int signum) {
     exit (0);
 }
 
-void func (int port, char * serv_ip, int room_id, int writing) {
+void func (int port, char * serv_ip, int room_id) {
     struct Client client;
     Client_init (&client, port, serv_ip);
-    CALL (connect, (client.sock.listenfd, (struct sockaddr *)&client.sock.serv_addr, sizeof(client.sock.serv_addr)));
-
+    CALL (connect (client.sock.listenfd, (struct sockaddr *)&client.sock.serv_addr, sizeof(client.sock.serv_addr)),
+        "connect");
+    LOG ("Connected to server");
     int op; sock = client.sock.listenfd;
     int req = JOIN_ROOM;
     WRITE_REQ (sock, req);
     write (sock, &room_id, sizeof (room_id));
     int srm;
+    usr_grp = room_id;
     read (sock, &srm, sizeof (srm));
     if (srm == room_id) {LOG ("Joined room %d", room_id);}
     else {
         LOG ("Error connecting");
         exit (0);
     }
-
+    int writing = 1;
     client_sock = client.sock.listenfd;
     pthread_t tidr, tidw;
     pthread_create (&tidr, NULL, read_handler, &client.sock.listenfd);
@@ -136,16 +143,17 @@ void func (int port, char * serv_ip, int room_id, int writing) {
 }
 
 int main (int argc, char ** argv) {
-    if (argc != 6) {
-        printf ("Usage: %s <ip> <port> <name> <gnum> <T/F:Writing>\n", argv[0]);
+    if (argc != 5) {
+        printf ("Usage: %s <ip> <port> <name> <gnum>\n", argv[0]);
         exit (0);
     }
+    printf ("Client Started!\n");
     ntp_init ();
     signal (SIGINT, signal_handler);
     char * serv_ip = argv[1];
     int port = atoi (argv[2]);
 
     who = argv[3];
-    func (port, serv_ip, atoi (argv[4]), !strcmp (argv[5], "T"));
+    func (port, serv_ip, atoi (argv[4]));
     return 0;
 }

@@ -170,17 +170,17 @@ struct t_format gettime () {
     struct timeval tval;
     gettimeofday (&tval, NULL);
     ll s = tval.tv_sec, us = tval.tv_usec;
-    s += s_off, us += us_off;
+    // s += s_off, us += us_off;
 
-    while (us < 0) {
-        --s;
-        us += 1e6;
-    }
-    while (us >= 1e6) {
-        ++s;
-        us -= 1e6;
-    }
-
-    struct t_format t = {s, us};
+    // while (us < 0) {
+    //     --s;
+    //     us += 1e6;
+    // }
+    // while (us >= 1e6) {
+    //     ++s;
+    //     us -= 1e6;
+    // }
+    time_t now; time (&now);
+    struct t_format t = {s, us, now};
     return t;
 }
