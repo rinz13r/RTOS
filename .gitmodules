@@ -1,3 +1,6 @@
 [submodule "Assignment-1"]
 	path = Assignment-1
 	url = https://github.com/rinz13r/mt-chat
+[submodule "MidTerm"]
+	path = MidTerm
+	url = https://github.com/rinz13r/mt-chat/
